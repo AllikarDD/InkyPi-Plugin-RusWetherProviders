@@ -1,22 +1,55 @@
 <div class="form-group">
     <label for="title" class="form-label">Title:</label>
-    <input type="text" id="title" name="title" placeholder="Hello World" required class="form-input">
+    <input type="text" id="title" name="title" placeholder="Москва" class="form-input">
+</div>
+
+<div class="form-group">
+    <label for="weather_provider" class="form-label">Weather provider:</label>
+    <select id="weather_provider" name="weather_provider" class="form-input">
+        <option value="Gismeteo">Gismeteo</option>
+        <option value="Open-Meteo">Open-Meteo</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="location" class="form-label">Location name:</label>
+    <input type="text" id="location" name="location" placeholder="Москва" class="form-input">
+</div>
+
+<div class="form-group">
+    <label for="latitude" class="form-label">Latitude:</label>
+    <input type="number" step="0.0001" id="latitude" name="latitude" placeholder="55.7558" class="form-input">
+</div>
+
+<div class="form-group">
+    <label for="longitude" class="form-label">Longitude:</label>
+    <input type="number" step="0.0001" id="longitude" name="longitude" placeholder="37.6176" class="form-input">
+</div>
+
+<div class="form-group">
+    <label for="api_key" class="form-label">Gismeteo API token (optional for Open-Meteo):</label>
+    <input type="password" id="api_key" name="api_key" placeholder="GISMETEO_API_TOKEN" class="form-input">
 </div>
 
 <script>
-    /**
-     * Populate plugin settings form fields on page load when editing an existing plugin instance.
-     *
-     * - `loadPluginSettings` is a boolean flag indicating whether the form
-     *   is editing an existing plugin (true) or creating a new plugin (false).
-     * - `pluginSettings` is an object containing saved values for this plugin.
-     *
-     * This script automatically fills inputs with saved settings.
-     */
-    document.addEventListener('DOMContentLoaded', () => {        
+    document.addEventListener('DOMContentLoaded', () => {
         if (loadPluginSettings) {
-            // Populate text inputs
-            document.getElementById('title').value = pluginSettings.title;
+            const settings = pluginSettings || {};
+            const fields = [
+                ['title', settings.title || 'Москва'],
+                ['weather_provider', settings.weather_provider || 'Gismeteo'],
+                ['location', settings.location || 'Москва'],
+                ['latitude', settings.latitude || '55.7558'],
+                ['longitude', settings.longitude || '37.6176'],
+                ['api_key', settings.api_key || '']
+            ];
+
+            fields.forEach(([id, value]) => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.value = value;
+                }
+            });
         }
     });
 </script>

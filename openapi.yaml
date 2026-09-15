@@ -1,0 +1,3332 @@
+openapi: 3.0.0
+info:
+  title: Weather Forecast API
+  description: |
+    API для получения прогноза погоды и текущих метеоусловий.
+    Для определения местоположения необходимо указать один из следующих параметров: name или coordinates.
+    
+    # О сервисе
+    Сервис предоставляет данные о погоде – прогноз с различными шагами агрегирования, текущие условия и астрономическую информацию.
+    
+    # Иконки
+    Для отображение иконок используйте данный [набор](https://st.gismeteo.st/api/icons/icons.zip).
+    
+    # Аутентификация
+    Для аутентификации используйте токен доступа. В каждом запросе добавляйте заголовок `X-Gismeteo-Token` со значением `<API_TOKEN>`.
+    
+    Пример запроса:
+    ```
+    GET /v4/weather/forecast/h1 HTTP/1.1
+    Host: api.gismeteo.net
+    X-Gismeteo-Token: <API_TOKEN>
+    ```
+  version: 4.0.1
+  contact:
+    name: API Support
+    email: info@gismeteo.ru
+    url: https://www.gismeteo.ru
+  x-logo:
+    url: "https://static.gismeteo.st/yaml/logo.beta.png"
+    altText: Gismeteo
+
+servers:
+  - url: https://api.gismeteo.net/v4/weather
+    description: Основной сервер API
+
+tags:
+  - name: Запросы
+    description: Основные методы API погоды
+
+# Вынесем общие параметры в якорь для всех forecast-методов
+paths:
+  /current:
+    get:
+      summary: Получение текущей погоды
+      description: >
+        Возвращает текущую погоду.
+        Для определения местоположения необходимо передать один из следующих параметров: name или coordinates.
+      tags:
+        - Запросы
+      parameters:
+        - name: name
+          in: query
+          description: Название населенного пункта (один из вариантов)
+          example: "москва"
+          schema:
+            type: string
+        - name: coordinates
+          in: query
+          description: >
+            Координаты местоположения (широта, долгота) – пример: "55.755798,37.617599" (один из вариантов)
+          example: "55.755798,37.617599"
+          schema:
+            type: string
+        - name: locale
+          in: query
+          description: |
+            Возможные значения (язык-регион):
+              * ru-RU
+              * lt-LT
+              * ru-LT
+              * lv-LV
+              * ru-LV
+              * uk-UA
+              * ru-UA
+              * ru-KZ
+              * ru-BY
+              * pl-PL
+              * en-GB
+          example: ru-RU
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location:
+                    $ref: "#/components/schemas/Location"
+                  current:
+                    $ref: "#/components/schemas/Current"
+                  astronomy:
+                      $ref: "#/components/schemas/Astronomy"
+        "400":
+          description: Неверный запрос (Bad Request). Отсутствуют обязательные параметры или переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    description: Метаданные ответа с кодом ошибки.
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 400
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Bad Request"
+                        detail:
+                          type: string
+                          example: "Param to search for is not defined"
+        "401":
+          description: Ошибка аутентификации (Unauthorized). Отсутствует или недействительный токен.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 401
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Unauthorized"
+                        detail:
+                          type: string
+                          example: "Token is required"
+        "404":
+          description: Данные не найдены (Not Found).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 404
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Not Found"
+                        detail:
+                          type: string
+                          example: "Page not found"
+        "429":
+          description: Превышено количество запросов (Rate Limit Exceeded).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 429
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Too Many Requests"
+                        detail:
+                          type: string
+                          example: "Rate limit exceeded. Try again later."
+      x-codeSamples:
+        - lang: 'cURL'
+          label: 'cURL'
+          source: |
+            curl -X GET 'https://api.gismeteo.net/v4/weather/current?name=Москва&locale=ru-RU' \
+            --header 'X-Gismeteo-Token: YOUR_TOKEN'
+        - lang: 'Python'
+          label: 'Python'
+          source: |
+            import requests
+            
+            url = "https://api.gismeteo.net/v4/weather/current?name=Москва&locale=ru-RU"
+            payload = {}
+            headers = {
+              'X-Gismeteo-Token': 'YOUR_TOKEN'
+            }
+            response = requests.request("GET", url, headers=headers, data=payload)
+            
+            print(response.text)
+        - lang: 'Golang'
+          label: 'Golang'
+          source: |
+            package main
+            
+            import (
+              "fmt"
+              "net/http"
+              "io"
+            )
+            
+            func main() {
+              url := "https://api.gismeteo.net/v4/weather/current?name=Москва&locale=ru-RU"
+              method := "GET"
+            
+              client := &http.Client {}
+              req, err := http.NewRequest(method, url, nil)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              req.Header.Add("X-Gismeteo-Token", "YOUR_TOKEN")
+            
+              res, err := client.Do(req)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              defer res.Body.Close()
+            
+              body, err := io.ReadAll(res.Body)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              fmt.Println(string(body))
+            }
+      security:
+        - ApiKeyAuth: [ ]
+  /forecast/h1:
+    get:
+      summary: Получение прогноза погоды (часовой)
+      description: >
+        Возвращает прогноз погоды с часовым шагом (24 срока в сутках).
+        Для определения местоположения необходимо передать один из следующих параметров: name или coordinates.
+        Данные предоставляются на срок до 3 суток, начиная с 0 часов текущего дня (по локальному времени населенного пункта). Если запрошенное количество почасовых сроков прогноза превышает количество доступных, оставшаяся часть выдачи будет дополнена трёхчасовыми сроками.
+      tags:
+        - Запросы
+      parameters:
+        - name: name
+          in: query
+          description: Название населенного пункта (один из вариантов)
+          example: "москва"
+          schema:
+            type: string
+        - name: coordinates
+          in: query
+          description: >
+            Координаты местоположения (широта, долгота) – пример: "55.755798,37.617599" (один из вариантов)
+          example: "55.755798,37.617599"
+          schema:
+            type: string
+        - name: days
+          in: query
+          description: Количество возвращаемых дней
+          example: 10
+          schema:
+            type: integer
+        - name: date_from
+          in: query
+          description: Дата и время первого возвращаемого срока
+          example: "2025-02-26T21:00:00Z"
+          schema:
+            type: date-time
+        - name: date_to
+          in: query
+          description: Дата и время прогноза, до которых возвращаются данные, не включая указанный срок
+          example: "2025-02-26T22:00:00Z"
+          schema:
+            type: date-time
+        - name: locale
+          in: query
+          description: |
+            Возможные значения (язык-регион):
+              * ru-RU
+              * lt-LT
+              * ru-LT
+              * lv-LV
+              * ru-LV
+              * uk-UA
+              * ru-UA
+              * ru-KZ
+              * ru-BY
+              * pl-PL
+              * en-GB
+          example: ru-RU
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location:
+                    $ref: "#/components/schemas/Location"
+                  forecast:
+                    $ref: "#/components/schemas/Forecast1"
+                  current:
+                    $ref: "#/components/schemas/Current1"
+                  astronomy:
+                    type: array
+                    description: "Информация о Солнце и Луне"
+                    items:
+                      $ref: "#/components/schemas/Astronomy"
+        "400":
+          description: Неверный запрос (Bad Request). Отсутствуют обязательные параметры или переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    description: Метаданные ответа с кодом ошибки.
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 400
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Bad Request"
+                        detail:
+                          type: string
+                          example: "Param to search for is not defined"
+        "401":
+          description: Ошибка аутентификации (Unauthorized). Отсутствует или недействительный токен.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 401
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Unauthorized"
+                        detail:
+                          type: string
+                          example: "Token is required"
+        "404":
+          description: Данные не найдены (Not Found).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 404
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Not Found"
+                        detail:
+                          type: string
+                          example: "Page not found"
+        "429":
+          description: Превышено количество запросов (Rate Limit Exceeded).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 429
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Too Many Requests"
+                        detail:
+                          type: string
+                          example: "Rate limit exceeded. Try again later."
+      x-codeSamples:
+        - lang: 'cURL'
+          label: 'cURL'
+          source: |
+            curl -X GET 'https://api.gismeteo.net/v4/weather/forecast/h1?name=Москва&locale=ru-RU' \
+            --header 'X-Gismeteo-Token: YOUR_TOKEN'
+        - lang: 'Python'
+          label: 'Python'
+          source: |
+            import requests
+            
+            url = "https://api.gismeteo.net/v4/weather/forecast/h1?name=Москва&locale=ru-RU"
+            payload = {}
+            headers = {
+              'X-Gismeteo-Token': 'YOUR_TOKEN'
+            }
+            response = requests.request("GET", url, headers=headers, data=payload)
+            
+            print(response.text)
+        - lang: 'Golang'
+          label: 'Golang'
+          source: |
+            package main
+            
+            import (
+              "fmt"
+              "net/http"
+              "io"
+            )
+            
+            func main() {
+              url := "https://api.gismeteo.net/v4/weather/forecast/h1?name=Москва&locale=ru-RU"
+              method := "GET"
+            
+              client := &http.Client {}
+              req, err := http.NewRequest(method, url, nil)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              req.Header.Add("X-Gismeteo-Token", "YOUR_TOKEN")
+            
+              res, err := client.Do(req)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              defer res.Body.Close()
+            
+              body, err := io.ReadAll(res.Body)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              fmt.Println(string(body))
+            }
+      security:
+        - ApiKeyAuth: [ ]
+  /forecast/h3:
+    get:
+      summary: Получение прогноза погоды (3-часовой)
+      description: >
+        Возвращает прогноз погоды с 3-часовым шагом агрегирования (8 сроков в сутках).
+        Для определения местоположения необходимо передать один из следующих параметров: name или coordinates.
+        Данные для прогноза по 3 часа предоставляются на срок до 14 суток, начиная с 0 часов текущего дня (по локальному времени населенного пункта). Если запрошенное количество 3-часовых сроков прогноза превышает количество доступных, оставшаяся часть выдачи будет дополнена шестичасовыми сроками.
+      tags:
+        - Запросы
+      parameters:
+        - name: name
+          in: query
+          description: Название населенного пункта (один из вариантов)
+          example: "москва"
+          schema:
+            type: string
+        - name: coordinates
+          in: query
+          description: >
+            Координаты местоположения (широта, долгота) – пример: "55.755798,37.617599" (один из вариантов)
+          example: "55.755798,37.617599"
+          schema:
+            type: string
+        - name: days
+          in: query
+          description: Количество возвращаемых дней
+          example: 10
+          schema:
+            type: integer
+        - name: date_from
+          in: query
+          description: Дата и время первого возвращаемого срока
+          example: "2025-04-02T15:00:00Z"
+          schema:
+            type: date-time
+        - name: date_to
+          in: query
+          description: Дата и время прогноза, до которых возвращаются данные, не включая указанный срок
+          example: "2025-04-02T20:00:00Z"
+          schema:
+            type: date-time
+        - name: locale
+          in: query
+          description: |
+            Возможные значения (язык-регион):
+              * ru-RU
+              * lt-LT
+              * ru-LT
+              * lv-LV
+              * ru-LV
+              * uk-UA
+              * ru-UA
+              * ru-KZ
+              * ru-BY
+              * pl-PL
+              * en-GB
+          example: ru-RU
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location:
+                    $ref: "#/components/schemas/Location"
+                  forecast:
+                    $ref: "#/components/schemas/Forecast3"
+                  current:
+                    $ref: "#/components/schemas/Current3"
+                  astronomy:
+                    type: array
+                    description: "Информация о Солнце и Луне"
+                    items:
+                      $ref: "#/components/schemas/Astronomy"
+        "400":
+          description: Неверный запрос (Bad Request). Отсутствуют обязательные параметры или переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    description: Метаданные ответа с кодом ошибки.
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 400
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Bad Request"
+                        detail:
+                          type: string
+                          example: "Missing required parameters"
+        "401":
+          description: Ошибка аутентификации (Unauthorized). Отсутствует или недействительный токен.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 401
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Unauthorized"
+                        detail:
+                          type: string
+                          example: "Invalid token"
+        "404":
+          description: Данные не найдены (Not Found).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 404
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Not Found"
+                        detail:
+                          type: string
+                          example: "Requested resource not found"
+        "429":
+          description: Превышено количество запросов (Rate Limit Exceeded).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 429
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Too Many Requests"
+                        detail:
+                          type: string
+                          example: "Rate limit exceeded. Try again later."
+      x-codeSamples:
+        - lang: 'cURL'
+          label: 'cURL'
+          source: |
+            curl -X GET 'https://api.gismeteo.net/v4/weather/forecast/h3?name=Москва&locale=ru-RU' \
+            --header 'X-Gismeteo-Token: YOUR_TOKEN'
+        - lang: 'Python'
+          label: 'Python'
+          source: |
+            import requests
+            
+            url = "https://api.gismeteo.net/v4/weather/forecast/h3?name=Москва&locale=ru-RU"
+            payload = {}
+            headers = {
+              'X-Gismeteo-Token': 'YOUR_TOKEN'
+            }
+            response = requests.request("GET", url, headers=headers, data=payload)
+            
+            print(response.text)
+        - lang: 'Golang'
+          label: 'Golang'
+          source: |
+            package main
+            
+            import (
+              "fmt"
+              "net/http"
+              "io"
+            )
+            
+            func main() {
+              url := "https://api.gismeteo.net/v4/weather/forecast/h3?name=Москва&locale=ru-RU"
+              method := "GET"
+            
+              client := &http.Client {}
+              req, err := http.NewRequest(method, url, nil)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              req.Header.Add("X-Gismeteo-Token", "YOUR_TOKEN")
+            
+              res, err := client.Do(req)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              defer res.Body.Close()
+            
+              body, err := io.ReadAll(res.Body)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              fmt.Println(string(body))
+            }
+      security:
+        - ApiKeyAuth: [ ]
+  /forecast/h6:
+    get:
+      summary: Получение прогноза погоды (6-часовой)
+      description: >
+        Возвращает прогноз погоды с 6-часовым шагом агрегирования (4 срока в сутках).
+        Для определения местоположения необходимо передать один из следующих параметров: name или coordinates.
+      tags:
+        - Запросы
+      parameters:
+        - name: name
+          in: query
+          description: Название населенного пункта (один из вариантов)
+          example: "москва"
+          schema:
+            type: string
+        - name: coordinates
+          in: query
+          description: >
+            Координаты местоположения (широта, долгота) – пример: "55.755798,37.617599" (один из вариантов)
+          example: "55.755798,37.617599"
+          schema:
+            type: string
+        - name: days
+          in: query
+          description: Количество возвращаемых дней
+          example: 10
+          schema:
+            type: integer
+        - name: date_from
+          in: query
+          description: Дата и время первого возвращаемого срока
+          example: "2025-04-02T15:00:00Z"
+          schema:
+            type: date-time
+        - name: date_to
+          in: query
+          description: Дата и время прогноза, до которых возвращаются данные, не включая указанный срок
+          example: "2025-04-03T01:00:00Z"
+          schema:
+            type: date-time
+        - name: locale
+          in: query
+          description: |
+            Возможные значения (язык-регион):
+              * ru-RU
+              * lt-LT
+              * ru-LT
+              * lv-LV
+              * ru-LV
+              * uk-UA
+              * ru-UA
+              * ru-KZ
+              * ru-BY
+              * pl-PL
+              * en-GB
+          example: ru-RU
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location:
+                    $ref: "#/components/schemas/Location"
+                  forecast:
+                    $ref: "#/components/schemas/Forecast6"
+                  current:
+                    $ref: "#/components/schemas/Current6"
+                  astronomy:
+                    type: array
+                    description: "Информация о Солнце и Луне"
+                    items:
+                      $ref: "#/components/schemas/Astronomy"
+        "400":
+          description: Неверный запрос (Bad Request). Отсутствуют обязательные параметры или переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    description: Метаданные ответа с кодом ошибки.
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 400
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Bad Request"
+                        detail:
+                          type: string
+                          example: "Param to search for is not defined"
+        "401":
+          description: Ошибка аутентификации (Unauthorized). Отсутствует или недействительный токен.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 401
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Unauthorized"
+                        detail:
+                          type: string
+                          example: "Token is required"
+        "404":
+          description: Данные не найдены (Not Found).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 404
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Not Found"
+                        detail:
+                          type: string
+                          example: "Page not found"
+        "429":
+          description: Превышено количество запросов (Rate Limit Exceeded).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 429
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Too Many Requests"
+                        detail:
+                          type: string
+                          example: "Rate limit exceeded. Try again later."
+      x-codeSamples:
+        - lang: 'cURL'
+          label: 'cURL'
+          source: |
+            curl -X GET 'https://api.gismeteo.net/v4/weather/forecast/h6?name=Москва&locale=ru-RU' \
+            --header 'X-Gismeteo-Token: YOUR_TOKEN'
+        - lang: 'Python'
+          label: 'Python'
+          source: |
+            import requests
+            
+            url = "https://api.gismeteo.net/v4/weather/forecast/h6?name=Москва&locale=ru-RU"
+            payload = {}
+            headers = {
+              'X-Gismeteo-Token': 'YOUR_TOKEN'
+            }
+            response = requests.request("GET", url, headers=headers, data=payload)
+            
+            print(response.text)
+        - lang: 'Golang'
+          label: 'Golang'
+          source: |
+            package main
+            
+            import (
+              "fmt"
+              "net/http"
+              "io"
+            )
+            
+            func main() {
+              url := "https://api.gismeteo.net/v4/weather/forecast/h6?name=Москва&locale=ru-RU"
+              method := "GET"
+            
+              client := &http.Client {}
+              req, err := http.NewRequest(method, url, nil)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              req.Header.Add("X-Gismeteo-Token", "YOUR_TOKEN")
+            
+              res, err := client.Do(req)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              defer res.Body.Close()
+            
+              body, err := io.ReadAll(res.Body)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              fmt.Println(string(body))
+            }
+      security:
+        - ApiKeyAuth: [ ]
+  /forecast/h24:
+    get:
+      summary: Получение прогноза погоды (24-часовой)
+      description: >
+        Возвращает прогноз погоды с 24-часовым шагом агрегирования (1 срок в сутках).
+        Данные агрегированы по минимальным, максимальным и средним значениям за сутки.
+        Для определения местоположения необходимо передать один из следующих параметров: name или coordinates.
+      tags:
+        - Запросы
+      parameters:
+        - name: name
+          in: query
+          description: Название населенного пункта (один из вариантов)
+          example: "москва"
+          schema:
+            type: string
+        - name: coordinates
+          in: query
+          description: >
+            Координаты местоположения (широта, долгота) – пример: "55.755798,37.617599" (один из вариантов)
+          example: "55.755798,37.617599"
+          schema:
+            type: string
+        - name: days
+          in: query
+          description: Количество возвращаемых дней
+          example: 10
+          schema:
+            type: integer
+        - name: date_from
+          in: query
+          description: Дата и время первого возвращаемого срока
+          example: "2025-04-02T21:00:00Z"
+          schema:
+            type: date-time
+        - name: date_to
+          in: query
+          description: Дата и время прогноза, до которых возвращаются данные, не включая указанный срок
+          example: "2025-04-03T21:00:00Z"
+          schema:
+            type: date-time
+        - name: locale
+          in: query
+          description: |
+            Возможные значения (язык-регион):
+              * ru-RU
+              * lt-LT
+              * ru-LT
+              * lv-LV
+              * ru-LV
+              * uk-UA
+              * ru-UA
+              * ru-KZ
+              * ru-BY
+              * pl-PL
+              * en-GB
+          example: ru-RU
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location:
+                    $ref: "#/components/schemas/Location"
+                  forecast:
+                    $ref: "#/components/schemas/Forecast24"
+                  astronomy:
+                    type: array
+                    description: "Информация о Солнце и Луне"
+                    items:
+                      $ref: "#/components/schemas/Astronomy"
+        "400":
+          description: Неверный запрос (Bad Request). Отсутствуют обязательные параметры или переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    description: Метаданные ответа с кодом ошибки.
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 400
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Bad Request"
+                        detail:
+                          type: string
+                          example: "Param to search for is not defined"
+        "401":
+          description: Ошибка аутентификации (Unauthorized). Отсутствует или недействительный токен.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 401
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Unauthorized"
+                        detail:
+                          type: string
+                          example: "Token is required"
+        "404":
+          description: Данные не найдены (Not Found).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 404
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Not Found"
+                        detail:
+                          type: string
+                          example: "Page not found"
+        "429":
+          description: Превышено количество запросов (Rate Limit Exceeded).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 429
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Too Many Requests"
+                        detail:
+                          type: string
+                          example: "Rate limit exceeded. Try again later."
+      x-codeSamples:
+        - lang: 'cURL'
+          label: 'cURL'
+          source: |
+            curl -X GET 'https://api.gismeteo.net/v4/weather/forecast/h24?name=Москва&locale=ru-RU' \
+            --header 'X-Gismeteo-Token: YOUR_TOKEN'
+        - lang: 'Python'
+          label: 'Python'
+          source: |
+            import requests
+            
+            url = "https://api.gismeteo.net/v4/weather/forecast/h24?name=Москва&locale=ru-RU"
+            payload = {}
+            headers = {
+              'X-Gismeteo-Token': 'YOUR_TOKEN'
+            }
+            response = requests.request("GET", url, headers=headers, data=payload)
+            
+            print(response.text)
+        - lang: 'Golang'
+          label: 'Golang'
+          source: |
+            package main
+            
+            import (
+              "fmt"
+              "net/http"
+              "io"
+            )
+            
+            func main() {
+              url := "https://api.gismeteo.net/v4/weather/forecast/h24?name=Москва&locale=ru-RU"
+              method := "GET"
+            
+              client := &http.Client {}
+              req, err := http.NewRequest(method, url, nil)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              req.Header.Add("X-Gismeteo-Token", "YOUR_TOKEN")
+            
+              res, err := client.Do(req)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              defer res.Body.Close()
+            
+              body, err := io.ReadAll(res.Body)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              fmt.Println(string(body))
+            }
+      security:
+        - ApiKeyAuth: [ ]
+  /archive/h1:
+    get:
+      summary: Получение архива прогноза погоды (часовой)
+      description: >
+        Возвращает архив прогнозов погоды с часовым шагом.
+        Для определения местоположения необходимо передать один из следующих параметров: name или coordinates.
+        Данные предоставляются на срок до 4 предыдущих суток.
+      tags:
+        - Запросы
+      parameters:
+        - name: name
+          in: query
+          description: Название населенного пункта (один из вариантов)
+          example: "москва"
+          schema:
+            type: string
+        - name: coordinates
+          in: query
+          description: >
+            Координаты местоположения (широта, долгота) – пример: "55.755798,37.617599" (один из вариантов)
+          example: "55.755798,37.617599"
+          schema:
+            type: string
+        - name: days
+          in: query
+          description: Количество возвращаемых дней
+          example: 10
+          schema:
+            type: integer
+        - name: date_from
+          in: query
+          description: Дата и время первого возвращаемого срока
+          example: "2025-02-26T21:00:00Z"
+          schema:
+            type: date-time
+        - name: date_to
+          in: query
+          description: Дата и время прогноза, до которых возвращаются данные, не включая указанный срок
+          example: "2025-02-26T22:00:00Z"
+          schema:
+            type: date-time
+        - name: locale
+          in: query
+          description: |
+            Возможные значения (язык-регион):
+              * ru-RU
+              * lt-LT
+              * ru-LT
+              * lv-LV
+              * ru-LV
+              * uk-UA
+              * ru-UA
+              * ru-KZ
+              * ru-BY
+              * pl-PL
+              * en-GB
+          example: ru-RU
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  location:
+                    $ref: "#/components/schemas/Location"
+                  forecast:
+                    $ref: "#/components/schemas/Archive1"
+                  astronomy:
+                    type: array
+                    description: "Информация о Солнце и Луне"
+                    items:
+                      $ref: "#/components/schemas/Astronomy"
+        "400":
+          description: Неверный запрос (Bad Request). Отсутствуют обязательные параметры или переданы некорректные данные.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    description: Метаданные ответа с кодом ошибки.
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 400
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Bad Request"
+                        detail:
+                          type: string
+                          example: "Missing required parameters"
+        "401":
+          description: Ошибка аутентификации (Unauthorized). Отсутствует или недействительный токен.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 401
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Unauthorized"
+                        detail:
+                          type: string
+                          example: "Invalid token"
+        "404":
+          description: Данные не найдены (Not Found).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 404
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Not Found"
+                        detail:
+                          type: string
+                          example: "Requested resource not found"
+        "429":
+          description: Превышено количество запросов (Rate Limit Exceeded).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    properties:
+                      status_code:
+                        type: integer
+                        example: 429
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "Too Many Requests"
+                        detail:
+                          type: string
+                          example: "Rate limit exceeded. Try again later."
+      x-codeSamples:
+        - lang: 'cURL'
+          label: 'cURL'
+          source: |
+            curl -X GET 'https://api.gismeteo.net/v4/weather/archive/h1?name=Москва&locale=ru-RU' \
+            --header 'X-Gismeteo-Token: YOUR_TOKEN'
+        - lang: 'Python'
+          label: 'Python'
+          source: |
+            import requests
+            
+            url = "https://api.gismeteo.net/v4/weather/archive/h1?name=Москва&locale=ru-RU"
+            payload = {}
+            headers = {
+              'X-Gismeteo-Token': 'YOUR_TOKEN'
+            }
+            response = requests.request("GET", url, headers=headers, data=payload)
+            
+            print(response.text)
+        - lang: 'Golang'
+          label: 'Golang'
+          source: |
+            package main
+            
+            import (
+              "fmt"
+              "net/http"
+              "io"
+            )
+            
+            func main() {
+              url := "https://api.gismeteo.net/v4/weather/archive/h1?name=Москва&locale=ru-RU"
+              method := "GET"
+            
+              client := &http.Client {}
+              req, err := http.NewRequest(method, url, nil)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              req.Header.Add("X-Gismeteo-Token", "YOUR_TOKEN")
+            
+              res, err := client.Do(req)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              defer res.Body.Close()
+            
+              body, err := io.ReadAll(res.Body)
+              if err != nil {
+                fmt.Println(err)
+                return
+              }
+              fmt.Println(string(body))
+            }
+      security:
+        - ApiKeyAuth: [ ]
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Gismeteo-Token
+  schemas:
+    Location:
+      type: object
+      description: "Информация о местоположении, включая название, координаты и временную зону."
+      properties:
+        name:
+          description: "Наименование населённого пункта в именительном падеже"
+          type: string
+          example: "Казань"
+        latitude:
+          description: "Географическая широта центра населённого пункта"
+          type: number
+          format: float
+          example: 55.796501
+        longitude:
+          description: "Географическая долгота центра населённого пункта"
+          type: number
+          format: float
+          example: 49.1082
+        time_zone_offset:
+          type: integer
+          description: Смещение относительно UTC в минутах.
+          example: 180
+        country_name:
+          description: "Название страны (обязательный параметр)."
+          type: string
+          example: "Россия"
+        district_name:
+          description: "Название округа/региона (необязательный параметр)."
+          type: string
+          example: "Республика Татарстан"
+        sub_district_name:
+          description: "Название района или административного округа (необязательный параметр, может быть пустым)."
+          type: string
+          example: "городской округ Казань"
+        path:
+          description: "URL-путь к странице прогноза погоды для выбранного населённого пункта."
+          type: string
+          example: "/weather-kazan-4364/"
+    Forecast1:
+      type: object
+      description: Прогноз погоды с шагом 1 час
+      properties:
+        time:
+          type: array
+          description: "Срок прогноза в формате UTC"
+          items:
+            type: string
+            format: date-time
+            example: "2025-02-26T21:00:00Z"
+        temperature_air:
+          type: array
+          description: "Температура воздуха (°C)"
+          items:
+            type: number
+            example: -3.56
+        temperature_heat_index:
+          type: array
+          description: "Температура по ощущениям (°C)"
+          items:
+            type: number
+            nullable: true
+            example: -5.59
+        temperature_water:
+          type: array
+          description: "Температура воды (°C)"
+          items:
+            type: number
+            example: 0
+        precipitation:
+          description: "Количество осадков (мм)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: null
+        precipitation_type:
+          description: |
+            Тип осадков:
+              * 0 – отсутствие осадков
+              * 1 – дождь
+              * 2 – снег
+              * 3 – дождь со снегом
+          type: array
+          items:
+            type: integer
+            example: 0
+        precipitation_intensity:
+          description: |
+            Интенсивность осадков:
+              * 0 - Нет осадков
+              * 1 - Небольшой дождь/снег
+              * 2 - Дождь/снег
+              * 3 - Сильный дождь/снег
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: 0
+        precipitation_probability:
+          description: "Вероятность осадков (%)"
+          type: array
+          items:
+            type: number
+            example: 0
+        pressure:
+          description: "Атмосферное давление (мм рт. ст.)"
+          type: array
+          items:
+            type: integer
+            example: 756
+        storm_prediction:
+          description: "Триггер наличия грозы"
+          type: array
+          items:
+            type: boolean
+            example: false
+        wind_direction:
+          description: |
+            Направление ветра (градусы, 0 - 360):
+              * 337.6 - 22.5 - северный
+              * 22.6 - 67.5  - северо-западный
+              * 67.6 - 112.5 - восточный
+              * 112.6 - 157.5 - юго-восточный
+              * 157.6 - 202.5 - южный
+              * 202.6 - 247.5 - юго-западный
+              * 247.6 - 292.5 - западный
+              * 292.6 - 337.5 - северо-западный
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 225
+        wind_speed:
+          description: "Скорость ветра (м/с)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 0.65
+        wind_gust:
+          description: "Порывы ветра (м/с)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 1.43
+        cloudiness:
+          description: |
+            Облачность (%):
+              * от 0% до 25% - Ясно
+              * от 26% до 50% - Малооблачно
+              * от 51% до 75% - Облачно
+              * от 76% до 100% - Пасмурно
+          type: array
+          items:
+            type: number
+            example: 0
+        humidity:
+          description: "Относительная влажность воздуха (%)"
+          type: array
+          items:
+            type: number
+            example: 60
+        dew_point:
+          description: "Точка росы (°C)"
+          type: array
+          items:
+            type: number
+            example: -10.19
+        snow_height:
+          description: "Высота снежного покрова (см)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 3
+        snow_fall:
+          description: "Водный эквивалент твердых осадков (мм)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 0
+        icon_weather:
+          description: "Погодная иконка"
+          type: array
+          items:
+            type: string
+            example: "n_c3_r3"
+        description:
+          description: "Описание погодных явлений"
+          type: array
+          items:
+            type: string
+            example: "Пасмурно, сильный дождь"
+        pollen_birch:
+          description: |
+            Пыльца березы:
+              * 1-29 - 1 балл  
+              * 30-199 - 2 балла  
+              * 200-999 - 3 балла  
+              * 1000-4999 - 4 балла  
+              * 5000 и более - 5 баллов
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: null
+        pollen_grass:
+          description: |
+            Пыльца травы:
+              * 1-9 - 1 балл
+              * 10-49 - 2 балла
+              * 50-199 - 3 балла
+              * 200-1499 - 4 балла
+              * 1500 и более - 5 баллов
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: null
+        radiation:
+          description: |
+            УФ-индекс (баллы), уровень  ультрафиолетового излучения Солнца:
+              * 0–2 - низкий
+              * 3–5 - умеренный
+              * 6–7 - высокий
+              * 8–10 - очень высокий
+              * 11+  - экстремальный
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: 0
+        road_condition_code:
+          description: |
+            Состояние дорожного покрытия:
+               * 0 – Нет данных
+               * 1 – Сухая дорога
+               * 2 – Мокрая дорога
+               * 3 – Лед/снег на дороге
+               * 4 – Смесь воды и снега на дороге
+               * 5 – Роса
+               * 6 – Тающий снег
+               * 7 – Мороз
+               * 8 – Ледяной дождь
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: 11
+    Forecast3:
+      type: object
+      description: Прогноз погоды с шагом 3 часа
+      properties:
+        time:
+          type: array
+          description: "Срок прогноза в формате UTC"
+          items:
+            type: string
+            format: date-time
+            example: "2025-02-26T21:00:00Z"
+        temperature_air:
+          type: array
+          description: "Температура воздуха (°C)"
+          items:
+            type: number
+            example: -3.56
+        temperature_heat_index:
+          type: array
+          description: "Температура по ощущениям (°C)"
+          items:
+            type: number
+            nullable: true
+            example: -5.59
+        temperature_water:
+          type: array
+          description: "Температура воды (°C)"
+          items:
+            type: number
+            example: 0
+        precipitation:
+          description: "Количество осадков (мм)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: null
+        precipitation_type:
+          description: |
+            Тип осадков:
+              * 0 – отсутствие осадков
+              * 1 – дождь
+              * 2 – снег
+              * 3 – дождь со снегом
+          type: array
+          items:
+            type: integer
+            example: 0
+        precipitation_intensity:
+          description: |
+            Интенсивность осадков:
+              * 0 - Нет осадков
+              * 1 - Небольшой дождь/снег
+              * 2 - Дождь/снег
+              * 3 - Сильный дождь/снег
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: 0
+        precipitation_probability:
+          description: "Вероятность осадков (%)"
+          type: array
+          items:
+            type: number
+            example: 0
+        pressure:
+          description: "Атмосферное давление (мм рт. ст.)"
+          type: array
+          items:
+            type: integer
+            example: 756
+        storm_prediction:
+          description: "Триггер наличия грозы"
+          type: array
+          items:
+            type: boolean
+            example: false
+        wind_direction:
+          description: |
+            Направление ветра (градусы, 0 - 360):
+              * 337.6 - 22.5 - северный
+              * 22.6 - 67.5  - северо-западный
+              * 67.6 - 112.5 - восточный
+              * 112.6 - 157.5 - юго-восточный
+              * 157.6 - 202.5 - южный
+              * 202.6 - 247.5 - юго-западный
+              * 247.6 - 292.5 - западный
+              * 292.6 - 337.5 - северо-западный
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 225
+        wind_speed:
+          description: "Скорость ветра (м/с)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 0.65
+        wind_gust:
+          description: "Порывы ветра (м/с)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 1.43
+        cloudiness:
+          description: |
+            Облачность (%):
+              * от 0% до 25% - Ясно
+              * от 26% до 50% - Малооблачно
+              * от 51% до 75% - Облачно
+              * от 76% до 100% - Пасмурно
+          type: array
+          items:
+            type: number
+            example: 0
+        humidity:
+          description: "Относительная влажность воздуха (%)"
+          type: array
+          items:
+            type: number
+            example: 60
+        dew_point:
+          description: "Точка росы (°C)"
+          type: array
+          items:
+            type: number
+            example: -10.19
+        snow_height:
+          description: "Высота снежного покрова (см)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 3
+        snow_fall:
+          description: "Водный эквивалент твердых осадков (мм)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 0
+        icon_weather:
+          description: "Погодная иконка"
+          type: array
+          items:
+            type: string
+            example: "n_c3_r3"
+        description:
+          description: "Описание погодных явлений"
+          type: array
+          items:
+            type: string
+            example: "Пасмурно, сильный дождь"
+        pollen_birch:
+          description: |
+            Пыльца березы:
+              * 1-29 - 1 балл  
+              * 30-199 - 2 балла  
+              * 200-999 - 3 балла  
+              * 1000-4999 - 4 балла  
+              * 5000 и более - 5 баллов
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: null
+        pollen_grass:
+          description: |
+            Пыльца травы:
+              * 1-9 - 1 балл
+              * 10-49 - 2 балла
+              * 50-199 - 3 балла
+              * 200-1499 - 4 балла
+              * 1500 и более - 5 баллов
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: null
+        radiation:
+          description: |
+            УФ-индекс (баллы), уровень  ультрафиолетового излучения Солнца:
+              * 0–2 - низкий
+              * 3–5 - умеренный
+              * 6–7 - высокий
+              * 8–10 - очень высокий
+              * 11+  - экстремальный
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: 0
+        road_condition_code:
+          description: |
+            Состояние дорожного покрытия:
+              * 0  – Нет данных о погоде на дороге
+              * 11 – Сухая дорога
+              * 12 – Влажная дорога
+              * 13 – Немного воды со снегом на дороге
+              * 14 – Снежный налёт на дороге
+              * 15 – Немного снега с водой на дороге
+              * 21 – Вода на дороге
+              * 22 – Много воды на дороге
+              * 31 – Снег, местами лёд на дороге
+              * 32 – Много снега на дороге
+              * 41 – Смесь из снега и воды на дороге
+              * 61 – Тающий снег на дороге
+              * 71 – Чёрный лёд на дороге
+              * 72 – Гололедица на дороге
+              * 81 – Замерзающий дождь на дороге
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: 11
+    Forecast6:
+      type: object
+      description: Прогноз погоды с шагом 6 часов
+      properties:
+        time:
+          type: array
+          description: "Срок прогноза в формате UTC"
+          items:
+            type: string
+            format: date-time
+            example: "2025-02-26T21:00:00Z"
+        temperature_air:
+          type: array
+          description: "Температура воздуха (°C)"
+          items:
+            type: number
+            example: -3.56
+        temperature_heat_index:
+          type: array
+          description: "Температура по ощущениям (°C)"
+          items:
+            type: number
+            nullable: true
+            example: -5.59
+        temperature_water:
+          type: array
+          description: "Температура воды (°C)"
+          items:
+            type: number
+            example: 0
+        precipitation:
+          description: "Количество осадков (мм)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: null
+        precipitation_type:
+          description: |
+            Тип осадков:
+              * 0 – отсутствие осадков
+              * 1 – дождь
+              * 2 – снег
+              * 3 – дождь со снегом
+          type: array
+          items:
+            type: integer
+            example: 0
+        precipitation_intensity:
+          description: |
+            Интенсивность осадков:
+              * 0 - Нет осадков
+              * 1 - Небольшой дождь/снег
+              * 2 - Дождь/снег
+              * 3 - Сильный дождь/снег
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: 0
+        precipitation_probability:
+          description: "Вероятность осадков (%)"
+          type: array
+          items:
+            type: number
+            example: 0
+        pressure:
+          description: "Атмосферное давление (мм рт. ст.)"
+          type: array
+          items:
+            type: integer
+            example: 756
+        storm_prediction:
+          description: "Триггер наличия грозы"
+          type: array
+          items:
+            type: boolean
+            example: false
+        wind_direction:
+          description: |
+            Направление ветра (градусы, 0 - 360):
+              * 337.6 - 22.5 - северный
+              * 22.6 - 67.5  - северо-западный
+              * 67.6 - 112.5 - восточный
+              * 112.6 - 157.5 - юго-восточный
+              * 157.6 - 202.5 - южный
+              * 202.6 - 247.5 - юго-западный
+              * 247.6 - 292.5 - западный
+              * 292.6 - 337.5 - северо-западный
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 225
+        wind_speed:
+          description: "Скорость ветра (м/с)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 0.65
+        wind_gust:
+          description: "Порывы ветра (м/с)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 1.43
+        cloudiness:
+          description: |
+            Облачность (%):
+              * от 0% до 25% - Ясно
+              * от 26% до 50% - Малооблачно
+              * от 51% до 75% - Облачно
+              * от 76% до 100% - Пасмурно
+          type: array
+          items:
+            type: number
+            example: 0
+        humidity:
+          description: "Относительная влажность воздуха (%)"
+          type: array
+          items:
+            type: number
+            example: 60
+        dew_point:
+          description: "Точка росы (°C)"
+          type: array
+          items:
+            type: number
+            example: -10.19
+        snow_height:
+          description: "Высота снежного покрова (см)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 3
+        snow_fall:
+          description: "Водный эквивалент твердых осадков (мм)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 0
+        icon_weather:
+          description: "Погодная иконка"
+          type: array
+          items:
+            type: string
+            example: "n_c3_r3"
+        description:
+          description: "Описание погодных явлений"
+          type: array
+          items:
+            type: string
+            example: "Пасмурно, сильный дождь"
+        pollen_birch:
+          description: |
+            Пыльца березы:
+              * 1-29 - 1 балл  
+              * 30-199 - 2 балла  
+              * 200-999 - 3 балла  
+              * 1000-4999 - 4 балла  
+              * 5000 и более - 5 баллов
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: null
+        pollen_grass:
+          description: |
+            Пыльца травы:
+              * 1-9 - 1 балл
+              * 10-49 - 2 балла
+              * 50-199 - 3 балла
+              * 200-1499 - 4 балла
+              * 1500 и более - 5 баллов
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: null
+        radiation:
+          description: |
+            УФ-индекс (баллы), уровень  ультрафиолетового излучения Солнца:
+              * 0–2 - низкий
+              * 3–5 - умеренный
+              * 6–7 - высокий
+              * 8–10 - очень высокий
+              * 11+  - экстремальный
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: 0
+        road_condition_code:
+          description: |
+            Состояние дорожного покрытия:
+              * 0  – Нет данных о погоде на дороге
+              * 11 – Сухая дорога
+              * 12 – Влажная дорога
+              * 13 – Немного воды со снегом на дороге
+              * 14 – Снежный налёт на дороге
+              * 15 – Немного снега с водой на дороге
+              * 21 – Вода на дороге
+              * 22 – Много воды на дороге
+              * 31 – Снег, местами лёд на дороге
+              * 32 – Много снега на дороге
+              * 41 – Смесь из снега и воды на дороге
+              * 61 – Тающий снег на дороге
+              * 71 – Чёрный лёд на дороге
+              * 72 – Гололедица на дороге
+              * 81 – Замерзающий дождь на дороге
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: 11
+    Current:
+      type: object
+      description: Текущие погодные условия
+      properties:
+        time:
+          description: "Срок прогноза в формате UTC"
+          type: string
+          format: date-time
+          example: "2025-02-26T21:00:00Z"
+        temperature_air:
+          description: "Температура воздуха (°C)"
+          type: number
+          example: -3.56
+        temperature_heat_index:
+          description: "Температура по ощущениям (°C)"
+          type: number
+          nullable: true
+          example: -5.59
+        temperature_water:
+          description: "Температура воды (°C)"
+          type: number
+          example: 0
+        precipitation:
+          description: "Количество осадков (мм)"
+          type: number
+          nullable: true
+          example: null
+        precipitation_type:
+          description: |
+            Тип осадков:
+              * 0 – отсутствие осадков
+              * 1 – дождь
+              * 2 – снег
+              * 3 – дождь со снегом
+          type: integer
+          example: 0
+        precipitation_intensity:
+          description: |
+            Интенсивность осадков:
+              * 0 - Нет осадков
+              * 1 - Небольшой дождь/снег
+              * 2 - Дождь/снег
+              * 3 - Сильный дождь/снег
+          type: integer
+          nullable: true
+          example: 0
+        precipitation_probability:
+          description: "Вероятность осадков (%)"
+          type: number
+          example: 0
+        pressure:
+          description: "Атмосферное давление (мм рт. ст.)"
+          type: integer
+          example: 756
+        storm_prediction:
+          description: "Триггер наличия грозы"
+          type: boolean
+          example: false
+        wind_direction:
+          description: |
+            Направление ветра (градусы, 0 - 360):
+              * 337.6 - 22.5 - северный
+              * 22.6 - 67.5  - северо-западный
+              * 67.6 - 112.5 - восточный
+              * 112.6 - 157.5 - юго-восточный
+              * 157.6 - 202.5 - южный
+              * 202.6 - 247.5 - юго-западный
+              * 247.6 - 292.5 - западный
+              * 292.6 - 337.5 - северо-западный
+          type: number
+          nullable: true
+          example: 225
+        wind_speed:
+          description: "Скорость ветра (м/с)"
+          type: number
+          nullable: true
+          example: 0.65
+        wind_gust:
+          description: "Порывы ветра (м/с)"
+          type: number
+          nullable: true
+          example: 1.43
+        cloudiness:
+          description: |
+            Облачность (%):
+              * от 0% до 25% - Ясно
+              * от 26% до 50% - Малооблачно
+              * от 51% до 75% - Облачно
+              * от 76% до 100% - Пасмурно
+          type: number
+          example: 0
+        humidity:
+          description: "Относительная влажность воздуха (%)"
+          type: number
+          example: 60
+        dew_point:
+          description: "Точка росы (°C)"
+          type: number
+          example: -10.19
+        snow_height:
+          description: "Высота снежного покрова (см)"
+          type: number
+          nullable: true
+          example: 3
+        snow_fall:
+          description: "Водный эквивалент твердых осадков (мм)"
+          type: number
+          nullable: true
+          example: 0
+        icon_weather:
+          description: "Погодная иконка"
+          type: string
+          example: "n_c3_r3"
+        description:
+          description: "Описание погодных явлений"
+          type: string
+          example: "Пасмурно, сильный дождь"
+        pollen_birch:
+          description: |
+            Пыльца березы:
+              * 1-29 - 1 балл  
+              * 30-199 - 2 балла  
+              * 200-999 - 3 балла  
+              * 1000-4999 - 4 балла  
+              * 5000 и более - 5 баллов
+          type: integer
+          nullable: true
+          example: null
+        pollen_grass:
+          description: |
+            Пыльца травы:
+              * 1-9 - 1 балл
+              * 10-49 - 2 балла
+              * 50-199 - 3 балла
+              * 200-1499 - 4 балла
+              * 1500 и более - 5 баллов
+          type: integer
+          nullable: true
+          example: null
+        radiation:
+          description: |
+            УФ-индекс (баллы), уровень  ультрафиолетового излучения Солнца:
+              * 0–2 - низкий
+              * 3–5 - умеренный
+              * 6–7 - высокий
+              * 8–10 - очень высокий
+              * 11+  - экстремальный
+          type: integer
+          nullable: true
+          example: 0
+        road_condition_code:
+          description: |
+            Состояние дорожного покрытия:
+              * 0  – Нет данных о погоде на дороге
+              * 11 – Сухая дорога
+              * 12 – Влажная дорога
+              * 13 – Немного воды со снегом на дороге
+              * 14 – Снежный налёт на дороге
+              * 15 – Немного снега с водой на дороге
+              * 21 – Вода на дороге
+              * 22 – Много воды на дороге
+              * 31 – Снег, местами лёд на дороге
+              * 32 – Много снега на дороге
+              * 41 – Смесь из снега и воды на дороге
+              * 61 – Тающий снег на дороге
+              * 71 – Чёрный лёд на дороге
+              * 72 – Гололедица на дороге
+              * 81 – Замерзающий дождь на дороге
+          type: integer
+          nullable: true
+          example: 11
+    Current1:
+      type: object
+      description: Текущие погодные условия
+      properties:
+        time:
+          description: "Срок прогноза в формате UTC"
+          type: string
+          format: date-time
+          example: "2025-02-26T21:00:00Z"
+        temperature_air:
+          description: "Температура воздуха (°C)"
+          type: number
+          example: -3.56
+        temperature_heat_index:
+          description: "Температура по ощущениям (°C)"
+          type: number
+          nullable: true
+          example: -5.59
+        temperature_water:
+          description: "Температура воды (°C)"
+          type: number
+          example: 0
+        precipitation:
+          description: "Количество осадков (мм)"
+          type: number
+          nullable: true
+          example: null
+        precipitation_type:
+          description: |
+            Тип осадков:
+              * 0 – отсутствие осадков
+              * 1 – дождь
+              * 2 – снег
+              * 3 – дождь со снегом
+          type: integer
+          example: 0
+        precipitation_intensity:
+          description: |
+            Интенсивность осадков:
+              * 0 - Нет осадков
+              * 1 - Небольшой дождь/снег
+              * 2 - Дождь/снег
+              * 3 - Сильный дождь/снег
+          type: integer
+          nullable: true
+          example: 0
+        precipitation_probability:
+          description: "Вероятность осадков (%)"
+          type: number
+          example: 0
+        pressure:
+          description: "Атмосферное давление (мм рт. ст.)"
+          type: integer
+          example: 756
+        storm_prediction:
+          description: "Триггер наличия грозы"
+          type: boolean
+          example: false
+        wind_direction:
+          description: |
+            Направление ветра (градусы, 0 - 360):
+              * 337.6 - 22.5 - северный
+              * 22.6 - 67.5  - северо-западный
+              * 67.6 - 112.5 - восточный
+              * 112.6 - 157.5 - юго-восточный
+              * 157.6 - 202.5 - южный
+              * 202.6 - 247.5 - юго-западный
+              * 247.6 - 292.5 - западный
+              * 292.6 - 337.5 - северо-западный
+          type: number
+          nullable: true
+          example: 225
+        wind_speed:
+          description: "Скорость ветра (м/с)"
+          type: number
+          nullable: true
+          example: 0.65
+        wind_gust:
+          description: "Порывы ветра (м/с)"
+          type: number
+          nullable: true
+          example: 1.43
+        cloudiness:
+          description: |
+            Облачность (%):
+              * от 0% до 25% - Ясно
+              * от 26% до 50% - Малооблачно
+              * от 51% до 75% - Облачно
+              * от 76% до 100% - Пасмурно
+          type: number
+          example: 0
+        humidity:
+          description: "Относительная влажность воздуха (%)"
+          type: number
+          example: 60
+        dew_point:
+          description: "Точка росы (°C)"
+          type: number
+          example: -10.19
+        snow_height:
+          description: "Высота снежного покрова (см)"
+          type: number
+          nullable: true
+          example: 3
+        snow_fall:
+          description: "Водный эквивалент твердых осадков (мм)"
+          type: number
+          nullable: true
+          example: 0
+        icon_weather:
+          description: "Погодная иконка"
+          type: string
+          example: "n_c3_r3"
+        description:
+          description: "Описание погодных явлений"
+          type: string
+          example: "Пасмурно, сильный дождь"
+        pollen_birch:
+          description: |
+            Пыльца березы:
+              * 1-29 - 1 балл  
+              * 30-199 - 2 балла  
+              * 200-999 - 3 балла  
+              * 1000-4999 - 4 балла  
+              * 5000 и более - 5 баллов
+          type: integer
+          nullable: true
+          example: null
+        pollen_grass:
+          description: |
+            Пыльца травы:
+              * 1-9 - 1 балл
+              * 10-49 - 2 балла
+              * 50-199 - 3 балла
+              * 200-1499 - 4 балла
+              * 1500 и более - 5 баллов
+          type: integer
+          nullable: true
+          example: null
+        radiation:
+          description: |
+            УФ-индекс (баллы), уровень  ультрафиолетового излучения Солнца:
+              * 0–2 - низкий
+              * 3–5 - умеренный
+              * 6–7 - высокий
+              * 8–10 - очень высокий
+              * 11+  - экстремальный
+          type: integer
+          nullable: true
+          example: 0
+        road_condition_code:
+          description: |
+            Состояние дорожного покрытия:
+              * 0  – Нет данных о погоде на дороге
+              * 11 – Сухая дорога
+              * 12 – Влажная дорога
+              * 13 – Немного воды со снегом на дороге
+              * 14 – Снежный налёт на дороге
+              * 15 – Немного снега с водой на дороге
+              * 21 – Вода на дороге
+              * 22 – Много воды на дороге
+              * 31 – Снег, местами лёд на дороге
+              * 32 – Много снега на дороге
+              * 41 – Смесь из снега и воды на дороге
+              * 61 – Тающий снег на дороге
+              * 71 – Чёрный лёд на дороге
+              * 72 – Гололедица на дороге
+              * 81 – Замерзающий дождь на дороге
+          type: integer
+          nullable: true
+          example: 11
+    Current3:
+      type: object
+      description: Текущие погодные условия
+      properties:
+        time:
+          description: "Срок прогноза в формате UTC"
+          type: string
+          format: date-time
+          example: "2025-02-26T21:00:00Z"
+        temperature_air:
+          description: "Температура воздуха (°C)"
+          type: number
+          example: -3.56
+        temperature_heat_index:
+          description: "Температура по ощущениям (°C)"
+          type: number
+          nullable: true
+          example: -5.59
+        temperature_water:
+          description: "Температура воды (°C)"
+          type: number
+          example: 0
+        precipitation:
+          description: "Количество осадков (мм)"
+          type: number
+          nullable: true
+          example: null
+        precipitation_type:
+          description: |
+            Тип осадков:
+              * 0 – отсутствие осадков
+              * 1 – дождь
+              * 2 – снег
+              * 3 – дождь со снегом
+          type: integer
+          example: 0
+        precipitation_intensity:
+          description: |
+            Интенсивность осадков:
+              * 0 - Нет осадков
+              * 1 - Небольшой дождь/снег
+              * 2 - Дождь/снег
+              * 3 - Сильный дождь/снег
+          type: integer
+          nullable: true
+          example: 0
+        precipitation_probability:
+          description: "Вероятность осадков (%)"
+          type: number
+          example: 0
+        pressure:
+          description: "Атмосферное давление (мм рт. ст.)"
+          type: integer
+          example: 756
+        storm_prediction:
+          description: "Триггер наличия грозы"
+          type: boolean
+          example: false
+        wind_direction:
+          description: |
+            Направление ветра (градусы, 0 - 360):
+              * 337.6 - 22.5 - северный
+              * 22.6 - 67.5  - северо-западный
+              * 67.6 - 112.5 - восточный
+              * 112.6 - 157.5 - юго-восточный
+              * 157.6 - 202.5 - южный
+              * 202.6 - 247.5 - юго-западный
+              * 247.6 - 292.5 - западный
+              * 292.6 - 337.5 - северо-западный
+          type: number
+          nullable: true
+          example: 225
+        wind_speed:
+          description: "Скорость ветра (м/с)"
+          type: number
+          nullable: true
+          example: 0.65
+        wind_gust:
+          description: "Порывы ветра (м/с)"
+          type: number
+          nullable: true
+          example: 1.43
+        cloudiness:
+          description: |
+            Облачность (%):
+              * от 0% до 25% - Ясно
+              * от 26% до 50% - Малооблачно
+              * от 51% до 75% - Облачно
+              * от 76% до 100% - Пасмурно
+          type: number
+          example: 0
+        humidity:
+          description: "Относительная влажность воздуха (%)"
+          type: number
+          example: 60
+        dew_point:
+          description: "Точка росы (°C)"
+          type: number
+          example: -10.19
+        snow_height:
+          description: "Высота снежного покрова (см)"
+          type: number
+          nullable: true
+          example: 3
+        snow_fall:
+          description: "Водный эквивалент твердых осадков (мм)"
+          type: number
+          nullable: true
+          example: 0
+        icon_weather:
+          description: "Погодная иконка"
+          type: string
+          example: "n_c3_r3"
+        description:
+          description: "Описание погодных явлений"
+          type: string
+          example: "Пасмурно, сильный дождь"
+        pollen_birch:
+          description: |
+            Пыльца березы:
+              * 1-29 - 1 балл  
+              * 30-199 - 2 балла  
+              * 200-999 - 3 балла  
+              * 1000-4999 - 4 балла  
+              * 5000 и более - 5 баллов
+          type: integer
+          nullable: true
+          example: null
+        pollen_grass:
+          description: |
+            Пыльца травы:
+              * 1-9 - 1 балл
+              * 10-49 - 2 балла
+              * 50-199 - 3 балла
+              * 200-1499 - 4 балла
+              * 1500 и более - 5 баллов
+          type: integer
+          nullable: true
+          example: null
+        radiation:
+          description: |
+            УФ-индекс (баллы), уровень  ультрафиолетового излучения Солнца:
+              * 0–2 - низкий
+              * 3–5 - умеренный
+              * 6–7 - высокий
+              * 8–10 - очень высокий
+              * 11+  - экстремальный
+          type: integer
+          nullable: true
+          example: 0
+        road_condition_code:
+          description: |
+            Состояние дорожного покрытия:
+              * 0  – Нет данных о погоде на дороге
+              * 11 – Сухая дорога
+              * 12 – Влажная дорога
+              * 13 – Немного воды со снегом на дороге
+              * 14 – Снежный налёт на дороге
+              * 15 – Немного снега с водой на дороге
+              * 21 – Вода на дороге
+              * 22 – Много воды на дороге
+              * 31 – Снег, местами лёд на дороге
+              * 32 – Много снега на дороге
+              * 41 – Смесь из снега и воды на дороге
+              * 61 – Тающий снег на дороге
+              * 71 – Чёрный лёд на дороге
+              * 72 – Гололедица на дороге
+              * 81 – Замерзающий дождь на дороге
+          type: integer
+          nullable: true
+          example: 11
+    Current6:
+      type: object
+      description: Текущие погодные условия
+      properties:
+        time:
+          description: "Срок прогноза в формате UTC"
+          type: string
+          format: date-time
+          example: "2025-02-26T21:00:00Z"
+        temperature_air:
+          description: "Температура воздуха (°C)"
+          type: number
+          example: -3.56
+        temperature_heat_index:
+          description: "Температура по ощущениям (°C)"
+          type: number
+          nullable: true
+          example: -5.59
+        temperature_water:
+          description: "Температура воды (°C)"
+          type: number
+          example: 0
+        precipitation:
+          description: "Количество осадков (мм)"
+          type: number
+          nullable: true
+          example: null
+        precipitation_type:
+          description: |
+            Тип осадков:
+              * 0 – отсутствие осадков
+              * 1 – дождь
+              * 2 – снег
+              * 3 – дождь со снегом
+          type: integer
+          example: 0
+        precipitation_intensity:
+          description: |
+            Интенсивность осадков:
+              * 0 - Нет осадков
+              * 1 - Небольшой дождь/снег
+              * 2 - Дождь/снег
+              * 3 - Сильный дождь/снег
+          type: integer
+          nullable: true
+          example: 0
+        precipitation_probability:
+          description: "Вероятность осадков (%)"
+          type: number
+          example: 0
+        pressure:
+          description: "Атмосферное давление (мм рт. ст.)"
+          type: integer
+          example: 756
+        storm_prediction:
+          description: "Триггер наличия грозы"
+          type: boolean
+          example: false
+        wind_direction:
+          description: |
+            Направление ветра (градусы, 0 - 360):
+              * 337.6 - 22.5 - северный
+              * 22.6 - 67.5  - северо-западный
+              * 67.6 - 112.5 - восточный
+              * 112.6 - 157.5 - юго-восточный
+              * 157.6 - 202.5 - южный
+              * 202.6 - 247.5 - юго-западный
+              * 247.6 - 292.5 - западный
+              * 292.6 - 337.5 - северо-западный
+          type: number
+          nullable: true
+          example: 225
+        wind_speed:
+          description: "Скорость ветра (м/с)"
+          type: number
+          nullable: true
+          example: 0.65
+        wind_gust:
+          description: "Порывы ветра (м/с)"
+          type: number
+          nullable: true
+          example: 1.43
+        cloudiness:
+          description: |
+            Облачность (%):
+              * от 0% до 25% - Ясно
+              * от 26% до 50% - Малооблачно
+              * от 51% до 75% - Облачно
+              * от 76% до 100% - Пасмурно
+          type: number
+          example: 0
+        humidity:
+          description: "Относительная влажность воздуха (%)"
+          type: number
+          example: 60
+        dew_point:
+          description: "Точка росы (°C)"
+          type: number
+          example: -10.19
+        snow_height:
+          description: "Высота снежного покрова (см)"
+          type: number
+          nullable: true
+          example: 3
+        snow_fall:
+          description: "Водный эквивалент твердых осадков (мм)"
+          type: number
+          nullable: true
+          example: 0
+        icon_weather:
+          description: "Погодная иконка"
+          type: string
+          example: "n_c3_r3"
+        description:
+          description: "Описание погодных явлений"
+          type: string
+          example: "Пасмурно, сильный дождь"
+        pollen_birch:
+          description: |
+            Пыльца березы:
+              * 1-29 - 1 балл  
+              * 30-199 - 2 балла  
+              * 200-999 - 3 балла  
+              * 1000-4999 - 4 балла  
+              * 5000 и более - 5 баллов
+          type: integer
+          nullable: true
+          example: null
+        pollen_grass:
+          description: |
+            Пыльца травы:
+              * 1-9 - 1 балл
+              * 10-49 - 2 балла
+              * 50-199 - 3 балла
+              * 200-1499 - 4 балла
+              * 1500 и более - 5 баллов
+          type: integer
+          nullable: true
+          example: null
+        radiation:
+          description: |
+            УФ-индекс (баллы), уровень  ультрафиолетового излучения Солнца:
+              * 0–2 - низкий
+              * 3–5 - умеренный
+              * 6–7 - высокий
+              * 8–10 - очень высокий
+              * 11+  - экстремальный
+          type: integer
+          nullable: true
+          example: 0
+        road_condition_code:
+          description: |
+            Состояние дорожного покрытия:
+              * 0  – Нет данных о погоде на дороге
+              * 11 – Сухая дорога
+              * 12 – Влажная дорога
+              * 13 – Немного воды со снегом на дороге
+              * 14 – Снежный налёт на дороге
+              * 15 – Немного снега с водой на дороге
+              * 21 – Вода на дороге
+              * 22 – Много воды на дороге
+              * 31 – Снег, местами лёд на дороге
+              * 32 – Много снега на дороге
+              * 41 – Смесь из снега и воды на дороге
+              * 61 – Тающий снег на дороге
+              * 71 – Чёрный лёд на дороге
+              * 72 – Гололедица на дороге
+              * 81 – Замерзающий дождь на дороге
+          type: integer
+          nullable: true
+          example: 11
+    Astronomy:
+      type: object
+      description: Астрономические данные
+      properties:
+        sun:
+          type: object
+          description: Данные о Cолнце
+          properties:
+            sunrise:
+              type: string
+              format: date-time
+              description: Время восхода Cолнца
+              example: "2025-02-27T04:25:22Z"
+            sunset:
+              type: string
+              format: date-time
+              description: Время заката Cолнца
+              example: "2025-02-27T14:59:59Z"
+        moon:
+          type: object
+          description: Данные о Луне
+          properties:
+            next_full:
+              type: string
+              format: date-time
+              description: Время следующего полнолуния
+              example: "2025-03-14T06:55:47Z"
+            previous_full:
+              type: string
+              format: date-time
+              description: Время предыдущего полнолуния
+              example: "2025-02-12T13:54:34Z"
+    Forecast24:
+      type: object
+      description: Прогноз погоды с шагом 24 часа агрегирования (агрегированные минимальные, максимальные и средние значения).
+      properties:
+        time:
+          type: array
+          description: "Срок прогноза в формате UTC"
+          items:
+            type: string
+            format: date-time
+            example: "2025-02-26T21:00:00Z"
+        temperature_air_min:
+          type: array
+          description: "Минимальная температура воздуха за сутки (°C)"
+          items:
+            type: number
+            example: -7.23
+        temperature_air_max:
+          type: array
+          description: "Максимальная температура воздуха за сутки (°C)"
+          items:
+            type: number
+            example: 2.81
+        temperature_air_avg:
+          description: "Средняя температура воздуха за сутки (°C)"
+          type: array
+          items:
+            type: number
+            example: -1.84
+        temperature_heat_index_min:
+          type: array
+          description: "Минимальная температура по ощущениям за сутки (°C)"
+          items:
+            type: number
+            nullable: true
+            example: -9.71
+        temperature_heat_index_max:
+          type: array
+          description: "Максимальная температура по ощущениям за сутки (°C)"
+          items:
+            type: number
+            nullable: true
+            example: 0.94
+        precipitation:
+          type: array
+          description: "Количество осадков (мм)"
+          items:
+            type: number
+            nullable: true
+            example: null
+        precipitation_type:
+          type: array
+          description: |
+            Тип осадков:
+              * 0 – отсутствие осадков
+              * 1 – дождь
+              * 2 – снег
+              * 3 – дождь со снегом
+          items:
+            type: integer
+            example: 0
+        precipitation_intensity:
+          type: array
+          description: |
+            Интенсивность осадков:
+              * 0 - Нет осадков
+              * 1 - Небольшой дождь/снег
+              * 2 - Дождь/снег
+              * 3 - Сильный дождь/снег
+          items:
+            type: integer
+            nullable: true
+            example: 0
+        precipitation_probability:
+          type: array
+          description: "Вероятность осадков (%)"
+          items:
+            type: number
+            example: 0
+        pressure_min:
+          type: array
+          description: "Минимальное атмосферное давление за сутки (мм рт. ст.)"
+          items:
+            type: integer
+            example: 755
+        pressure_max:
+          type: array
+          description: "Максимальное атмосферное давление за сутки (мм рт. ст.)"
+          items:
+            type: integer
+            example: 756
+        storm_prediction:
+          type: array
+          description: "Триггер наличия грозы"
+          items:
+            type: boolean
+            example: false
+        wind_direction_min:
+          type: array
+          description: |
+            Минимальное направление ветра (градусы, 0-360):
+              * 337.6 - 22.5 - северный
+              * 22.6 - 67.5  - северо-западный
+              * 67.6 - 112.5 - восточный
+              * 112.6 - 157.5 - юго-восточный
+              * 157.6 - 202.5 - южный
+              * 202.6 - 247.5 - юго-западный
+              * 247.6 - 292.5 - западный
+              * 292.6 - 337.5 - северо-западный
+          items:
+            type: number
+            nullable: true
+            example: 225
+        wind_direction_max:
+          type: array
+          description: |
+            Максимальное направление ветра (градусы, 0-360):
+              * 337.6 - 22.5 - северный
+              * 22.6 - 67.5  - северо-западный
+              * 67.6 - 112.5 - восточный
+              * 112.6 - 157.5 - юго-восточный
+              * 157.6 - 202.5 - южный
+              * 202.6 - 247.5 - юго-западный
+              * 247.6 - 292.5 - западный
+              * 292.6 - 337.5 - северо-западный
+          items:
+            type: number
+            nullable: true
+            example: 318
+        wind_direction_avg:
+          type: array
+          description: |
+            Среднее направление ветра (градусы, 0-360):
+              * 337.6 - 22.5 - северный
+              * 22.6 - 67.5  - северо-западный
+              * 67.6 - 112.5 - восточный
+              * 112.6 - 157.5 - юго-восточный
+              * 157.6 - 202.5 - южный
+              * 202.6 - 247.5 - юго-западный
+              * 247.6 - 292.5 - западный
+              * 292.6 - 337.5 - северо-западный
+          items:
+            type: number
+            nullable: true
+            example: 274.875
+        wind_speed_min:
+          type: array
+          description: "Минимальная скорость ветра за сутки (м/с)"
+          items:
+            type: number
+            nullable: true
+            example: 0.23
+        wind_speed_max:
+          type: array
+          description: "Максимальная скорость ветра за сутки (м/с)"
+          items:
+            type: number
+            nullable: true
+            example: 1.27
+        wind_speed_avg:
+          type: array
+          description: "Средняя скорость ветра за сутки (м/с)"
+          items:
+            type: number
+            nullable: true
+            example: 0.72375
+        wind_gust_max:
+          type: array
+          description: "Максимальные порывы ветра за сутки (м/с)"
+          items:
+            type: number
+            nullable: true
+            example: 3.72
+        cloudiness:
+          type: array
+          description: |
+            Облачность (%):
+              * от 0% до 25% - Ясно
+              * от 26% до 50% - Малооблачно
+              * от 51% до 75% - Облачно
+              * от 76% до 100% - Пасмурно
+          items:
+            type: number
+            example: 3
+        humidity_min:
+          type: array
+          description: "Минимальная относительная влажность воздуха за сутки (%)"
+          items:
+            type: integer
+            example: 25
+        humidity_max:
+          type: array
+          description: "Максимальная относительная влажность воздуха за сутки (%)"
+          items:
+            type: integer
+            example: 79
+        humidity_avg:
+          type: array
+          description: "Средняя относительная влажность воздуха за сутки (%)"
+          items:
+            type: number
+            example: 50.125
+        snow_height:
+          type: array
+          description: "Высота снежного покрова (см)"
+          items:
+            type: number
+            nullable: true
+            example: 3.1
+        snow_fall:
+          type: array
+          description: "Водный эквивалент твердых осадков (мм)"
+          items:
+            type: number
+            nullable: true
+            example: 0
+        icon_weather:
+          type: array
+          description: "Погодная иконка"
+          items:
+            type: string
+            example: "n_c3_r3"
+        description:
+          type: array
+          description: "Описание погодных явлений"
+          items:
+            type: string
+            example: "Пасмурно, сильный дождь"
+        pollen_birch:
+          description: |
+            Пыльца березы:
+              * 1-29 - 1 балл  
+              * 30-199 - 2 балла  
+              * 200-999 - 3 балла  
+              * 1000-4999 - 4 балла  
+              * 5000 и более - 5 баллов
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: null
+        pollen_grass:
+          description: |
+            Пыльца травы:
+              * 1-9 - 1 балл
+              * 10-49 - 2 балла
+              * 50-199 - 3 балла
+              * 200-1499 - 4 балла
+              * 1500 и более - 5 баллов
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: null
+        radiation:
+          description: |
+            УФ-индекс (баллы), уровень  ультрафиолетового излучения Солнца:
+              * 0–2 - низкий
+              * 3–5 - умеренный
+              * 6–7 - высокий
+              * 8–10 - очень высокий
+              * 11+  - экстремальный
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: 0
+        road_condition_code:
+          type: array
+          description: |
+            Состояние дорожного покрытия:
+              * 0  – Нет данных о погоде на дороге
+              * 11 – Сухая дорога
+              * 12 – Влажная дорога
+              * 13 – Немного воды со снегом на дороге
+              * 14 – Снежный налёт на дороге
+              * 15 – Немного снега с водой на дороге
+              * 21 – Вода на дороге
+              * 22 – Много воды на дороге
+              * 31 – Снег, местами лёд на дороге
+              * 32 – Много снега на дороге
+              * 41 – Смесь из снега и воды на дороге
+              * 61 – Тающий снег на дороге
+              * 71 – Чёрный лёд на дороге
+              * 72 – Гололедица на дороге
+              * 81 – Замерзающий дождь на дороге
+          items:
+            type: integer
+            nullable: true
+            example: 11
+    Archive1:
+      type: object
+      description: Архив прогнозов погоды с часовым шагом.
+      properties:
+        time:
+          type: array
+          description: "Срок прогноза в формате UTC"
+          items:
+            type: string
+            format: date-time
+            example: "2025-02-26T21:00:00Z"
+        temperature_air:
+          type: array
+          description: "Температура воздуха (°C)"
+          items:
+            type: number
+            example: -3.56
+        temperature_heat_index:
+          type: array
+          description: "Температура по ощущениям (°C)"
+          items:
+            type: number
+            nullable: true
+            example: -5.59
+        temperature_water:
+          type: array
+          description: "Температура воды (°C)"
+          items:
+            type: number
+            example: 0
+        precipitation:
+          description: "Количество осадков (мм)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: null
+        precipitation_type:
+          description: |
+            Тип осадков:
+              * 0 – отсутствие осадков
+              * 1 – дождь
+              * 2 – снег
+              * 3 – дождь со снегом
+          type: array
+          items:
+            type: integer
+            example: 0
+        precipitation_intensity:
+          description: |
+            Интенсивность осадков:
+              * 0 - Нет осадков
+              * 1 - Небольшой дождь/снег
+              * 2 - Дождь/снег
+              * 3 - Сильный дождь/снег
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: 0
+        precipitation_probability:
+          description: "Вероятность осадков (%)"
+          type: array
+          items:
+            type: number
+            example: 0
+        pressure:
+          description: "Атмосферное давление (мм рт. ст.)"
+          type: array
+          items:
+            type: integer
+            example: 756
+        storm_prediction:
+          description: "Триггер наличия грозы"
+          type: array
+          items:
+            type: boolean
+            example: false
+        wind_direction:
+          description: |
+            Направление ветра (градусы, 0 - 360):
+              * 337.6 - 22.5 - северный
+              * 22.6 - 67.5  - северо-западный
+              * 67.6 - 112.5 - восточный
+              * 112.6 - 157.5 - юго-восточный
+              * 157.6 - 202.5 - южный
+              * 202.6 - 247.5 - юго-западный
+              * 247.6 - 292.5 - западный
+              * 292.6 - 337.5 - северо-западный
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 225
+        wind_speed:
+          description: "Скорость ветра (м/с)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 0.65
+        wind_gust:
+          description: "Порывы ветра (м/с)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 1.43
+        cloudiness:
+          description: |
+            Облачность (%):
+              * от 0% до 25% - Ясно
+              * от 26% до 50% - Малооблачно
+              * от 51% до 75% - Облачно
+              * от 76% до 100% - Пасмурно
+          type: array
+          items:
+            type: number
+            example: 0
+        humidity:
+          description: "Относительная влажность воздуха (%)"
+          type: array
+          items:
+            type: number
+            example: 60
+        dew_point:
+          description: "Точка росы (°C)"
+          type: array
+          items:
+            type: number
+            example: -10.19
+        snow_height:
+          description: "Высота снежного покрова (см)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 3
+        snow_fall:
+          description: "Водный эквивалент твердых осадков (мм)"
+          type: array
+          items:
+            type: number
+            nullable: true
+            example: 0
+        icon_weather:
+          description: "Погодная иконка"
+          type: array
+          items:
+            type: string
+            example: "n_c3_r3"
+        description:
+          description: "Описание погодных явлений"
+          type: array
+          items:
+            type: string
+            example: "Пасмурно, сильный дождь"
+        pollen_birch:
+          description: |
+            Пыльца березы:
+              * 1-29 - 1 балл  
+              * 30-199 - 2 балла  
+              * 200-999 - 3 балла  
+              * 1000-4999 - 4 балла  
+              * 5000 и более - 5 баллов
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: null
+        pollen_grass:
+          description: |
+            Пыльца травы:
+              * 1-9 - 1 балл
+              * 10-49 - 2 балла
+              * 50-199 - 3 балла
+              * 200-1499 - 4 балла
+              * 1500 и более - 5 баллов
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: null
+        radiation:
+          description: |
+            УФ-индекс (баллы), уровень  ультрафиолетового излучения Солнца:
+              * 0–2 - низкий
+              * 3–5 - умеренный
+              * 6–7 - высокий
+              * 8–10 - очень высокий
+              * 11+  - экстремальный
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: 0
+        road_condition_code:
+          description: |
+            Состояние дорожного покрытия:
+              * 0  – Нет данных о погоде на дороге
+              * 11 – Сухая дорога
+              * 12 – Влажная дорога
+              * 13 – Немного воды со снегом на дороге
+              * 14 – Снежный налёт на дороге
+              * 15 – Немного снега с водой на дороге
+              * 21 – Вода на дороге
+              * 22 – Много воды на дороге
+              * 31 – Снег, местами лёд на дороге
+              * 32 – Много снега на дороге
+              * 41 – Смесь из снега и воды на дороге
+              * 61 – Тающий снег на дороге
+              * 71 – Чёрный лёд на дороге
+              * 72 – Гололедица на дороге
+              * 81 – Замерзающий дождь на дороге
+          type: array
+          items:
+            type: integer
+            nullable: true
+            example: 11
