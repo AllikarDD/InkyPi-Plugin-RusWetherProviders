@@ -142,7 +142,7 @@ class Template(BasePlugin):
         updated = weather.timestamp.strftime("%d.%m %H:%M")
         draw.text((10, height - 18), f"Обновлено: {updated}", fill="black", font=font_small)
 
-        return image.convert("RGB")
+        return image.convert("RGB") #TODO Переделать как в weather.py
 
     def _get_icon_path(self, icon_name: Optional[str]) -> Optional[str]:
         if not icon_name:
